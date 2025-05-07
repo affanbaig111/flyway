@@ -31,6 +31,17 @@ pipeline {
                 '''
             }
         }
+        stage('Wait for Services') {
+                    steps {
+                        echo '⏳ Waiting 2 minutes for services to become healthy...'
+                        sleep time: 2, unit: 'MINUTES'
+                    }
+                }
+        stage('docker compose down'){
+        steps{
+        sh 'docker compose down'
+
+        }}
     }
 
     post {
