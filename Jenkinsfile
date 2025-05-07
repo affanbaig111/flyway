@@ -4,49 +4,66 @@ pipeline {
     stages {
         stage('List Files') {
             steps {
+                echo '📁 Listing files in workspace...'
                 sh 'ls -l'
             }
         }
 
-        stage('Docker Compose') {
+        stage('Start Postgres') {
             steps {
-                echo '🏗️ Running docker compose'
+                echo '🏗️ Starting Postgres containers...'
                 sh 'docker compose up -d'
-                sh 'echo "Build successful"'
             }
         }
 
-        stage('Wait for Services') {
+        stage('Wait for Postgres') {
             steps {
-                echo '⏳ Waiting 2 minutes for services to become healthy...'
-                sleep time: 2, unit: 'MINUTES'
+                echo '⏳ Waiting 1 minute for Postgres to initialize...'
+                sleep time: 1, unit: 'MINUTES'
             }
         }
+
+        stage('Run Flyway Migrations') {
+            steps {
+                echo '🚀 Running Flyway migrations...'
+                sh 'docker compose -f docker-compose.flyway.yml up --abort-on-container-exit'
+            }
+        }
+        stage('Wait for migrations') {
+                    steps {
+                        echo '⏳ Waiting 1 minute for Postgres to initialize...'
+                        sleep time: 1, unit: 'MINUTES'
+                    }
+                }
 
         stage('Truncate Databases') {
             steps {
+                echo '🧹 Truncating databases...'
                 sh '''
                     chmod +x truncate_postgres_in_docker.sh
                     ./truncate_postgres_in_docker.sh
                 '''
             }
         }
-        stage('Wait for Services') {
-                    steps {
-                        echo '⏳ Waiting 2 minutes for services to become healthy...'
-                        sleep time: 2, unit: 'MINUTES'
-                    }
-                }
-        stage('docker compose down'){
-        steps{
-        sh 'docker compose down'
 
-        }}
+        stage('Wait for Cleanup') {
+            steps {
+                echo '⏳ Waiting 2 minutes after truncation...'
+                sleep time: 2, unit: 'MINUTES'
+            }
+        }
+
+        stage('Shutdown Services') {
+            steps {
+                echo '🛑 Stopping and cleaning up containers...'
+                sh 'docker compose down'
+            }
+        }
     }
 
     post {
         always {
-            echo '📦 Pipeline finished.'
+            echo '✅ Pipeline finished.'
         }
     }
 }
